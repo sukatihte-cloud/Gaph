@@ -5,7 +5,7 @@ from flask_cors import CORS
 from waitress import serve
 
 app = Flask(__name__)
-CORS(app) # Чтобы запросы летали без проблем
+CORS(app)
 
 CHAT_FILE = 'chat.json'
 USERS_FILE = 'users.json'
@@ -30,14 +30,14 @@ def auth():
         u, p = data.get('user', '').strip(), data.get('pass', '').strip()
         users = load_db(USERS_FILE)
         if data.get('action') == 'reg':
-            if u in users: return jsonify({"status": "error", "msg": "Ник уже занят, бро!"})
+            if u in users: return jsonify({"status": "error", "msg": "Ник занят, бро!"})
             users[u] = p
             save_db(USERS_FILE, users)
             return jsonify({"status": "ok"})
         else:
             if users.get(u) == p: return jsonify({"status": "ok"})
-            return jsonify({"status": "error", "msg": "Неверный пароль или ник!"})
-    except: return jsonify({"status": "error", "msg": "Ошибка сервера"})
+            return jsonify({"status": "error", "msg": "Неверно!"})
+    except: return jsonify({"status": "error", "msg": "Сервер упал, сорян"})
 
 @app.route('/send', methods=['POST'])
 def send():
@@ -60,7 +60,7 @@ HTML_CODE = """
         body { background: #121212; color: white; font-family: sans-serif; }
         #auth-screen, #chat-screen { padding: 20px; }
         #chat-box { height: 50vh; border: 1px solid #444; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #222; }
-        .msg { margin: 5px; padding: 8px; border-radius: 10px; background: #444; }
+        .msg { margin: 5px; padding: 8px; border-radius: 10px; background: #333; }
         input { display: block; width: 100%; padding: 12px; margin: 5px 0; border-radius: 5px; box-sizing: border-box; border: none; }
         button { padding: 12px; width: 100%; border-radius: 5px; background: #007bff; color: white; border: none; margin-top: 5px; }
     </style>
@@ -84,10 +84,20 @@ HTML_CODE = """
             try {
                 let res = await fetch(url, options);
                 return await res.json();
-            } catch(e) {
-                alert("Сервер лагает, проверяй консоль!");
-                throw e;
+            } catch(e) { alert("Лаги!"); throw e; }
+        }
+
+        // Функция обработки медиа
+        function formatContent(text) {
+            const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(text);
+            const isVideo = /\.(mp4|webm)$/i.test(text);
+
+            if (isImage) {
+                return `<br><img src="${text}" style="max-width: 100%; border-radius: 10px; margin-top: 5px;">`;
+            } else if (isVideo) {
+                return `<br><video src="${text}" controls style="max-width: 100%; border-radius: 10px; margin-top: 5px;"></video>`;
             }
+            return text;
         }
 
         if (sessionStorage.getItem('nick')) showChat();
@@ -110,7 +120,7 @@ HTML_CODE = """
             document.getElementById('auth-screen').style.display = 'none';
             document.getElementById('chat-screen').style.display = 'block';
             update();
-            setInterval(update, 3000); // Обновление чата каждые 3 сек
+            setInterval(update, 3000);
         }
 
         function logout() { sessionStorage.removeItem('nick'); location.reload(); }
@@ -128,7 +138,9 @@ HTML_CODE = """
 
         async function update() {
             let data = await fetchSafe('/get');
-            document.getElementById('chat-box').innerHTML = data.map(m => `<div class="msg"><b>${m.user}</b>: ${m.text}</div>`).join('');
+            document.getElementById('chat-box').innerHTML = data.map(m => 
+                `<div class="msg"><b>${m.user}</b>: ${formatContent(m.text)}</div>`
+            ).join('');
             document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
         }
     </script>
@@ -137,6 +149,5 @@ HTML_CODE = """
 """
 
 if __name__ == '__main__':
-    print("Запускаем чат на порту 5000...")
+    print("Чат запущен на http://localhost:5000")
     serve(app, host='0.0.0.0', port=5000)
-
