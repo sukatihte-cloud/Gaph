@@ -62,88 +62,30 @@ def send():
 def get(): 
     return jsonify(load_db(CHAT_FILE))
 
-# --- ВЕСЬ HTML, CSS И JS (КЛАССИЧЕСКИЙ ТЕМНЫЙ СТИЛЬ) ---
+# --- ПОЛНЫЙ HTML, CSS И JS ---
 HTML_CODE = """
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Чат Ханифа</title>
+    <title>Gaph Chat | Hanif Edition</title>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
-        body { 
-            background: #0f0f0f; 
-            color: #e0e0e0; 
-            font-family: 'Segoe UI', sans-serif; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
-            margin: 0; 
-        }
-        #auth-screen, #chat-screen { 
-            padding: 25px; 
-            width: 100%; 
-            max-width: 380px; 
-            background: #181818; 
-            border-radius: 12px; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.8); 
-            border: 1px solid #333;
-        }
-        h2 { text-align: center; color: #007bff; text-transform: uppercase; margin-bottom: 20px; }
-        #chat-box { 
-            height: 55vh; 
-            border: 1px solid #333; 
-            overflow-y: auto; 
-            padding: 10px; 
-            margin-bottom: 15px; 
-            background: #111; 
-            border-radius: 8px; 
-            display: flex;
-            flex-direction: column;
-        }
-        .msg { 
-            margin: 5px 0; 
-            padding: 10px; 
-            border-radius: 8px; 
-            background: #252525; 
-            border-left: 3px solid #007bff;
-            word-wrap: break-word;
-        }
-        .msg b { color: #007bff; }
-        input { 
-            display: block; 
-            width: 100%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            border-radius: 6px; 
-            box-sizing: border-box; 
-            border: 1px solid #444; 
-            background: #222; 
-            color: #fff; 
-            outline: none;
-        }
-        input:focus { border-color: #007bff; }
-        button { 
-            padding: 12px; 
-            width: 100%; 
-            border-radius: 6px; 
-            background: #007bff; 
-            color: white; 
-            border: none; 
-            margin-top: 8px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            transition: 0.2s;
-        }
+        body { background: #0f0f0f; color: #e0e0e0; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        #auth-screen, #chat-screen { padding: 25px; width: 100%; max-width: 380px; background: #181818; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); border: 1px solid #333; }
+        h2 { text-align: center; color: #007bff; }
+        #chat-box { height: 55vh; border: 1px solid #333; overflow-y: auto; padding: 10px; margin-bottom: 15px; background: #111; border-radius: 8px; }
+        .msg { margin: 8px 0; padding: 10px; border-radius: 8px; background: #252525; border-left: 3px solid #007bff; }
+        input { display: block; width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; box-sizing: border-box; border: 1px solid #444; background: #222; color: #fff; }
+        button { padding: 12px; width: 100%; border-radius: 6px; background: #007bff; color: white; border: none; margin-top: 8px; cursor: pointer; font-weight: bold; }
         button:hover { background: #0056b3; }
-        .captcha-container { margin: 15px 0; display: flex; justify-content: center; }
+        .captcha-container { margin: 20px 0; display: flex; justify-content: center; }
     </style>
 </head>
 <body>
     <div id="auth-screen">
-        <h2>ЧАТ ХАНИФА</h2>
+        <h2>GAPH CHAT</h2>
         <input id="u" placeholder="Никнейм">
         <input id="p" type="password" placeholder="Пароль">
         <div class="captcha-container">
@@ -154,7 +96,7 @@ HTML_CODE = """
     </div>
 
     <div id="chat-screen" style="display:none;">
-        <h2>ЧАТ ХАНИФА</h2>
+        <h2>ОБЩИЙ ЧАТ</h2>
         <div id="chat-box"></div>
         <div style="display:flex; gap: 5px;">
             <input id="msg" placeholder="Сообщение..." onkeypress="if(event.keyCode==13) send()">
@@ -165,15 +107,13 @@ HTML_CODE = """
 
     <script>
         async function fetchSafe(url, options) {
-            try {
-                let res = await fetch(url, options);
-                return await res.json();
-            } catch(e) { return {status: "error", msg: "Ошибка связи"}; }
+            let res = await fetch(url, options);
+            return await res.json();
         }
 
         function formatContent(text) {
             const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(text);
-            if (isImg) return `<br><img src="${text}" style="max-width: 100%; border-radius: 8px; margin-top: 5px;">`;
+            if (isImg) return `<br><img src="${text}" style="max-width: 100%; border-radius: 8px;">`;
             return text;
         }
 
@@ -181,25 +121,20 @@ HTML_CODE = """
 
         async function go(action) {
             let v = grecaptcha.getResponse();
-            if(v.length == 0) { alert("Подтверди, что ты не бот!"); return; }
-            
+            if(v.length == 0) { alert("Капчу пройди!"); return; }
             let u = document.getElementById('u').value.trim();
             let p = document.getElementById('p').value.trim();
-            if(!u || !p) { alert("Введи данные!"); return; }
+            if(!u || !p) return;
 
             let data = await fetchSafe('/auth', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({action: action, user: u, pass: p})
             });
-
             if (data.status === 'ok') {
                 sessionStorage.setItem('nick', u);
                 showChat();
-            } else { 
-                alert(data.msg); 
-                grecaptcha.reset(); 
-            }
+            } else { alert(data.msg); grecaptcha.reset(); }
         }
 
         function showChat() {
@@ -225,10 +160,8 @@ HTML_CODE = """
         async function update() {
             let data = await fetchSafe('/get');
             const box = document.getElementById('chat-box');
-            if(Array.isArray(data)) {
-                box.innerHTML = data.map(m => `<div class="msg"><b>${m.user}</b>: ${formatContent(m.text)}</div>`).join('');
-                box.scrollTop = box.scrollHeight;
-            }
+            box.innerHTML = data.map(m => `<div class="msg"><b>${m.user}</b>: ${formatContent(m.text)}</div>`).join('');
+            box.scrollTop = box.scrollHeight;
         }
     </script>
 </body>
@@ -236,6 +169,5 @@ HTML_CODE = """
 """
 
 if __name__ == '__main__':
-    # Порт для Render
     port = int(os.environ.get("PORT", 5000))
     serve(app, host='0.0.0.0', port=port)
