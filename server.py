@@ -28,5 +28,6 @@ def check_db():
         return jsonify({"status": "Error", "message": f"Мелстрой всё еще против: {str(e)}"})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    # Если Render не дал порт, используем 5000 по умолчанию
+    server_port = int(os.environ.get("PORT", 5000)) 
+    app.run(host='0.0.0.0', port=server_port)
