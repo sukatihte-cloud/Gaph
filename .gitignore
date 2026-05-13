@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# 1. Удаляем файлы из индекса Гита (они останутся у тебя на диске, но пропадут из Гита)
+git rm --cached chat.json
+git rm --cached users.json
+
+# 2. Сохраняем изменения
+git commit -m "Убрал базы данных из репозитория"
+
+# 3. Отправляем в облако
+git push origin main
