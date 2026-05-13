@@ -1,5 +1,0 @@
-flask
-flask-cors
-waitress
-gunicorn
-supabase
