@@ -62,7 +62,7 @@ def send():
 def get(): 
     return jsonify(load_db(CHAT_FILE))
 
-# --- ВЕСЬ HTML, CSS И JS В ОДНОЙ ПЕРЕМЕННОЙ ---
+# --- ПОЛНЫЙ HTML, CSS И JS ---
 HTML_CODE = """
 <!DOCTYPE html>
 <html lang="ru">
@@ -70,74 +70,104 @@ HTML_CODE = """
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Gaph Chat | Hanif Edition</title>
-    
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    
     <style>
-        body { 
-            background: #0f0f0f; 
-            color: #e0e0e0; 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            min-height: 100vh; 
-            margin: 0; 
+        body { background: #0f0f0f; color: #e0e0e0; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        #auth-screen, #chat-screen { padding: 25px; width: 100%; max-width: 380px; background: #181818; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); border: 1px solid #333; }
+        h2 { text-align: center; color: #007bff; }
+        #chat-box { height: 55vh; border: 1px solid #333; overflow-y: auto; padding: 10px; margin-bottom: 15px; background: #111; border-radius: 8px; }
+        .msg { margin: 8px 0; padding: 10px; border-radius: 8px; background: #252525; border-left: 3px solid #007bff; }
+        input { display: block; width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; box-sizing: border-box; border: 1px solid #444; background: #222; color: #fff; }
+        button { padding: 12px; width: 100%; border-radius: 6px; background: #007bff; color: white; border: none; margin-top: 8px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        .captcha-container { margin: 20px 0; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div id="auth-screen">
+        <h2>GAPH CHAT</h2>
+        <input id="u" placeholder="Никнейм">
+        <input id="p" type="password" placeholder="Пароль">
+        <div class="captcha-container">
+            <div class="g-recaptcha" data-sitekey="6LdrZegsAAAAAKnakLUjs64D_rwf0DCv6kMnrv8C" data-theme="dark"></div>
+        </div>
+        <button onclick="go('login')">Войти</button>
+        <button onclick="go('reg')" style="background:#218838;">Регистрация</button>
+    </div>
+
+    <div id="chat-screen" style="display:none;">
+        <h2>ОБЩИЙ ЧАТ</h2>
+        <div id="chat-box"></div>
+        <div style="display:flex; gap: 5px;">
+            <input id="msg" placeholder="Сообщение..." onkeypress="if(event.keyCode==13) send()">
+            <button onclick="send()" style="width: auto;">➡️</button>
+        </div>
+        <button onclick="logout()" style="background:#c82333; margin-top: 15px;">Выйти</button>
+    </div>
+
+    <script>
+        async function fetchSafe(url, options) {
+            let res = await fetch(url, options);
+            return await res.json();
         }
-        #auth-screen, #chat-screen { 
-            padding: 25px; 
-            width: 100%; 
-            max-width: 380px; 
-            background: #181818; 
-            border-radius: 12px; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.8); 
-            border: 1px solid #333;
+
+        function formatContent(text) {
+            const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(text);
+            if (isImg) return `<br><img src="${text}" style="max-width: 100%; border-radius: 8px;">`;
+            return text;
         }
-        h2 { text-align: center; color: #007bff; margin-bottom: 20px; }
-        #chat-box { 
-            height: 60vh; 
-            border: 1px solid #333; 
-            overflow-y: auto; 
-            padding: 10px; 
-            margin-bottom: 15px; 
-            background: #111; 
-            border-radius: 8px; 
-            display: flex;
-            flex-direction: column;
+
+        if (sessionStorage.getItem('nick')) showChat();
+
+        async function go(action) {
+            let v = grecaptcha.getResponse();
+            if(v.length == 0) { alert("Капчу пройди!"); return; }
+            let u = document.getElementById('u').value.trim();
+            let p = document.getElementById('p').value.trim();
+            if(!u || !p) return;
+
+            let data = await fetchSafe('/auth', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({action: action, user: u, pass: p})
+            });
+            if (data.status === 'ok') {
+                sessionStorage.setItem('nick', u);
+                showChat();
+            } else { alert(data.msg); grecaptcha.reset(); }
         }
-        .msg { 
-            margin: 4px 0; 
-            padding: 10px; 
-            border-radius: 8px; 
-            background: #252525; 
-            word-wrap: break-word;
-            border-left: 3px solid #007bff;
+
+        function showChat() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'block';
+            update(); setInterval(update, 3000);
         }
-        .msg b { color: #007bff; }
-        input { 
-            display: block; 
-            width: 100%; 
-            padding: 12px; 
-            margin: 10px 0; 
-            border-radius: 6px; 
-            box-sizing: border-box; 
-            border: 1px solid #444; 
-            background: #222; 
-            color: #fff; 
-            outline: none;
+
+        function logout() { sessionStorage.removeItem('nick'); location.reload(); }
+
+        async function send() {
+            let input = document.getElementById('msg');
+            let txt = input.value.trim();
+            if(!txt) return;
+            await fetchSafe('/send', { 
+                method:'POST', 
+                headers:{'Content-Type':'application/json'}, 
+                body:JSON.stringify({user: sessionStorage.getItem('nick'), text: txt}) 
+            });
+            input.value = ''; update();
         }
-        input:focus { border-color: #007bff; }
-        button { 
-            padding: 12px; 
-            width: 100%; 
-            border-radius: 6px; 
-            background: #007bff; 
-            color: white; 
-            border: none; 
-            margin-top: 8px; 
-            cursor: pointer; 
-            font-weight: bold; 
-            text-transform: uppercase;
-            transition: 0.2s;
+
+        async function update() {
+            let data = await fetchSafe('/get');
+            const box = document.getElementById('chat-box');
+            box.innerHTML = data.map(m => `<div class="msg"><b>${m.user}</b>: ${formatContent(m.text)}</div>`).join('');
+            box.scrollTop = box.scrollHeight;
         }
-        button:hover { background: #0056b3; transform:
+    </script>
+</body>
+</html>
+"""
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    serve(app, host='0.0.0.0', port=port)
