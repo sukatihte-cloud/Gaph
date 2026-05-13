@@ -1,28 +1,17 @@
-import json
 import os
 from flask import Flask, render_template_string, request, jsonify
 from flask_cors import CORS
 from waitress import serve
+from supabase import create_client, Client
 
 app = Flask(__name__)
 CORS(app)
 
-# Файлы базы данных
-CHAT_FILE = 'chat.json'
-USERS_FILE = 'users.json'
-
-def load_db(file):
-    if not os.path.exists(file) or os.path.getsize(file) == 0: 
-        return {} if file == USERS_FILE else []
-    try:
-        with open(file, 'r', encoding='utf-8') as f: 
-            return json.load(f)
-    except: 
-        return {} if file == USERS_FILE else []
-
-def save_db(file, data):
-    with open(file, 'w', encoding='utf-8') as f: 
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# --- ПОДКЛЮЧЕНИЕ SUPABASE ---
+# Эти переменные мы добавим в настройки Render
+URL = os.environ.get("SUPABASE_URL")
+KEY = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(URL, KEY)
 
 @app.route('/')
 def index(): 
@@ -33,36 +22,52 @@ def auth():
     try:
         data = request.json
         u, p = data.get('user', '').strip(), data.get('pass', '').strip()
-        users = load_db(USERS_FILE)
         
+        # Ищем юзера в таблице 'users'
+        res = supabase.table("users").select("*").eq("username", u).execute()
+        user_data = res.data
+
         if data.get('action') == 'reg':
-            if u in users: 
+            if user_data: 
                 return jsonify({"status": "error", "msg": "Ник занят, бро!"})
-            users[u] = p
-            save_db(USERS_FILE, users)
+            # Регаем нового
+            supabase.table("users").insert({"username": u, "password": p}).execute()
             return jsonify({"status": "ok"})
         else:
-            if users.get(u) == p: 
+            # Проверяем вход
+            if user_data and user_data[0]['password'] == p: 
                 return jsonify({"status": "ok"})
             return jsonify({"status": "error", "msg": "Неверно!"})
-    except: 
+    except Exception as e: 
+        print(f"Ошибка базы: {e}")
         return jsonify({"status": "error", "msg": "Сервер упал, сорян"})
 
 @app.route('/send', methods=['POST'])
 def send():
     try:
-        history = load_db(CHAT_FILE)
-        history.append(request.json)
-        save_db(CHAT_FILE, history)
+        data = request.json
+        # Сохраняем в таблицу 'messages'
+        supabase.table("messages").insert({
+            "username": data.get('user'), 
+            "content": data.get('text')
+        }).execute()
         return jsonify({"status": "ok"})
-    except: 
+    except Exception as e:
+        print(f"Ошибка отправки: {e}")
         return jsonify({"status": "error"})
 
 @app.route('/get')
 def get(): 
-    return jsonify(load_db(CHAT_FILE))
+    try:
+        # Берем последние 50 сообщений
+        res = supabase.table("messages").select("*").order("created_at", desc=False).limit(50).execute()
+        # Переделываем формат под твой фронтенд (content -> text, username -> user)
+        history = [{"user": m['username'], "text": m['content']} for m in res.data]
+        return jsonify(history)
+    except:
+        return jsonify([])
 
-# --- ПОЛНЫЙ HTML, CSS И JS ---
+# --- ТВОЙ HTML ОСТАЛСЯ БЕЗ ИЗМЕНЕНИЙ ---
 HTML_CODE = """
 <!DOCTYPE html>
 <html lang="ru">
