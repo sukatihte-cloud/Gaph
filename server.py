@@ -51,18 +51,21 @@ def send():
 @app.route('/get')
 def get(): return jsonify(load_db(CHAT_FILE))
 
+# --- ОБНОВЛЕННЫЙ HTML КОД С КАПЧЕЙ ---
 HTML_CODE = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; }
-        #auth-screen, #chat-screen { padding: 20px; }
+        #auth-screen, #chat-screen { padding: 20px; max-width: 400px; margin: auto; }
         #chat-box { height: 50vh; border: 1px solid #444; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #222; }
         .msg { margin: 5px; padding: 8px; border-radius: 10px; background: #333; }
-        input { display: block; width: 100%; padding: 12px; margin: 5px 0; border-radius: 5px; box-sizing: border-box; border: none; }
-        button { padding: 12px; width: 100%; border-radius: 5px; background: #007bff; color: white; border: none; margin-top: 5px; }
+        input { display: block; width: 100%; padding: 12px; margin: 5px 0; border-radius: 5px; box-sizing: border-box; border: none; background: #333; color: white; }
+        button { padding: 12px; width: 100%; border-radius: 5px; background: #007bff; color: white; border: none; margin-top: 5px; cursor: pointer; }
+        .captcha-container { margin: 15px 0; display: flex; justify-content: center; }
     </style>
 </head>
 <body>
@@ -70,15 +73,22 @@ HTML_CODE = """
         <h2>Чат Ханифа</h2>
         <input id="u" placeholder="Ник">
         <input id="p" type="password" placeholder="Пароль">
+        
+        <div class="captcha-container">
+            <div class="g-recaptcha" data-sitekey="6Lf5Y-gsAAAAACjt5wI1mOF6iO5ohF7B8beeXJof" data-theme="dark"></div>
+        </div>
+
         <button onclick="go('login')">Войти</button>
         <button onclick="go('reg')" style="background:#28a745;">Регистрация</button>
     </div>
+
     <div id="chat-screen" style="display:none;">
         <div id="chat-box"></div>
         <input id="msg" placeholder="Сообщение...">
         <button onclick="send()">Отправить</button>
         <button onclick="logout()" style="background:#dc3545;">Выйти</button>
     </div>
+
     <script>
         async function fetchSafe(url, options) {
             try {
@@ -87,33 +97,35 @@ HTML_CODE = """
             } catch(e) { alert("Лаги!"); throw e; }
         }
 
-        // Функция обработки медиа
         function formatContent(text) {
             const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(text);
             const isVideo = /\.(mp4|webm)$/i.test(text);
-
-            if (isImage) {
-                return `<br><img src="${text}" style="max-width: 100%; border-radius: 10px; margin-top: 5px;">`;
-            } else if (isVideo) {
-                return `<br><video src="${text}" controls style="max-width: 100%; border-radius: 10px; margin-top: 5px;"></video>`;
-            }
+            if (isImage) return `<br><img src="${text}" style="max-width: 100%; border-radius: 10px;">`;
+            if (isVideo) return `<br><video src="${text}" controls style="max-width: 100%; border-radius: 10px;"></video>`;
             return text;
         }
 
         if (sessionStorage.getItem('nick')) showChat();
 
         async function go(action) {
+            // Проверка: нажата ли капча (на стороне клиента)
+            let v = grecaptcha.getResponse();
+            if(v.length == 0) {
+                alert("Капчу нажми, ежже!");
+                return;
+            }
+
             let u = document.getElementById('u').value;
             let p = document.getElementById('p').value;
             let data = await fetchSafe('/auth', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({action: action, user: u, pass: p})
+                body: JSON.stringify({action: action, user: u, pass: p, captcha: v})
             });
             if (data.status === 'ok') {
                 sessionStorage.setItem('nick', u);
                 showChat();
-            } else { alert(data.msg); }
+            } else { alert(data.msg); grecaptcha.reset(); }
         }
 
         function showChat() {
@@ -149,5 +161,6 @@ HTML_CODE = """
 """
 
 if __name__ == '__main__':
-    print("Чат запущен на http://localhost:5000")
-    serve(app, host='0.0.0.0', port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Чат запущен на порту {port}")
+    serve(app, host='0.0.0.0', port=port)
